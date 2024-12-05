@@ -15,13 +15,7 @@ final class EdgeCasesReadingTest extends TestCase
 
         $reader = (new Reader())->read($path);
 
-        $rows = [];
-
-        foreach ($reader->values() as $row) {
-            $rows[] = $row;
-        }
-
-        self::assertSame(
+        self::assertEquals(
             [
                 [
                     'ID' => 8,
@@ -47,16 +41,18 @@ final class EdgeCasesReadingTest extends TestCase
                         'c' => [
                             'D' => [
                                 [
-                                    'e' => [-1],
-                                    'f' => ['nonnullable'],
+                                    [
+                                        'e' => -1,
+                                        'f' => 'nonnullable',
+                                    ],
                                 ],
                             ],
                         ],
-                        'G' => null,
+                        'G' => [],
                     ],
                 ],
             ],
-            $rows
+            \iterator_to_array($reader->values())
         );
     }
 

@@ -19,6 +19,8 @@ final class FlatColumn implements Column
 
     private ?NestedColumn $parent = null;
 
+    private ?Repetitions $repetitions = null;
+
     public function __construct(
         private readonly string $name,
         private readonly PhysicalType $type,
@@ -152,10 +154,10 @@ final class FlatColumn implements Column
                 'name' => $this->parent->name(),
                 'flat_path' => $this->parent->flatPath(),
             ] : null,
-            'physical_type' => $this->type,
-            'logical_type' => $this->logicalType,
-            'converted_type' => $this->convertedType,
-            'repetition' => $this->repetition,
+            'physical_type' => $this->type->name,
+            'logical_type' => $this->logicalType?->name(),
+            'converted_type' => $this->convertedType?->name,
+            'repetition' => $this->repetition?->name,
             'precision' => $this->precision,
             'scale' => $this->scale,
             'type_length' => $this->typeLength,
@@ -217,57 +219,9 @@ final class FlatColumn implements Column
         return false;
     }
 
-    public function isListElement() : bool
-    {
-        if ($this->parent !== null) {
-            // element
-            if ($this->parent->logicalType()?->name() === 'LIST') {
-                return true;
-            }
-
-            // list.element
-            if ($this->parent->parent()?->logicalType()?->name() === 'LIST') {
-                return true;
-            }
-
-            // list.element.{column}
-            if ($this->parent->parent()?->parent()?->logicalType()?->name() === 'LIST') {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public function isMap() : bool
     {
         return false;
-    }
-
-    public function isMapElement() : bool
-    {
-        if ($this->parent === null) {
-            return false;
-        }
-
-        if ($this->parent()?->logicalType()?->name() === 'MAP') {
-            return true;
-        }
-
-        if ($this->parent()?->parent()?->logicalType()?->name() === 'MAP') {
-            return true;
-        }
-
-        if ($this->parent()?->parent()?->parent()?->logicalType()?->name() === 'MAP') {
-            return true;
-        }
-
-        return false;
-    }
-
-    public function isRequired() : bool
-    {
-        return $this->repetition !== Repetition::OPTIONAL;
     }
 
     public function isStruct() : bool
@@ -275,29 +229,18 @@ final class FlatColumn implements Column
         return false;
     }
 
-    public function isStructElement() : bool
-    {
-        $parent = $this->parent();
-
-        if ($parent === null) {
-            return false;
-        }
-
-        /** @var NestedColumn $parent */
-        if ($parent->isList()) {
-            return false;
-        }
-
-        if ($parent->isMap()) {
-            return false;
-        }
-
-        return true;
-    }
-
     public function logicalType() : ?LogicalType
     {
         return $this->logicalType;
+    }
+
+    public function makeOptional() : self
+    {
+        $column = new self($this->name, $this->type, $this->convertedType, $this->logicalType, Repetition::OPTIONAL, $this->precision, $this->scale, $this->typeLength);
+        $column->parent = $this->parent;
+        $column->flatPath = $this->flatPath;
+
+        return $column;
     }
 
     public function makeRequired() : self
@@ -343,6 +286,30 @@ final class FlatColumn implements Column
     public function repetition() : ?Repetition
     {
         return $this->repetition;
+    }
+
+    public function repetitions() : Repetitions
+    {
+        if ($this->repetitions !== null) {
+            return $this->repetitions;
+        }
+
+        $repetitions = [$this->repetition];
+
+        $parent = $this->parent();
+
+        while ($parent) {
+            // Skip schema root
+            if ($parent->parent() === null) {
+                break;
+            }
+            $repetitions[] = $parent->repetition();
+            $parent = $parent->parent();
+        }
+
+        $this->repetitions = new Repetitions(...\array_reverse(\array_values(\array_filter($repetitions))));
+
+        return $this->repetitions;
     }
 
     public function scale() : ?int

@@ -13,6 +13,8 @@ final class NestedColumn implements Column
 
     private ?self $parent = null;
 
+    private ?Repetitions $repetitions = null;
+
     /**
      * @param array<Column> $children
      */
@@ -44,10 +46,10 @@ final class NestedColumn implements Column
     {
         return new self(
             $schemaElement->name,
-            $schemaElement->repetition_type ? Repetition::from($schemaElement->repetition_type) : null,
+            $schemaElement->repetition_type !== null ? Repetition::from($schemaElement->repetition_type) : null,
             $children,
-            $schemaElement->converted_type ? ConvertedType::from($schemaElement->converted_type) : null,
-            $schemaElement->logicalType ? LogicalType::fromThrift($schemaElement->logicalType) : null
+            $schemaElement->converted_type !== null ? ConvertedType::from($schemaElement->converted_type) : null,
+            $schemaElement->logicalType !== null ? LogicalType::fromThrift($schemaElement->logicalType) : null
         );
     }
 
@@ -119,10 +121,10 @@ final class NestedColumn implements Column
                 'name' => $this->parent->name(),
                 'flat_path' => $this->parent->flatPath(),
             ] : null,
-            'physical_type' => $this->type(),
-            'logical_type' => $this->logicalType,
-            'converted_type' => $this->convertedType,
-            'repetition' => $this->repetition,
+            'physical_type' => $this->type()?->name,
+            'logical_type' => $this->logicalType?->name(),
+            'converted_type' => $this->convertedType?->name,
+            'repetition' => $this->repetition?->name,
             'max_definitions_level' => $this->maxDefinitionsLevel(),
             'max_repetitions_level' => $this->maxRepetitionsLevel(),
         ];
@@ -250,23 +252,6 @@ final class NestedColumn implements Column
         return $this->logicalType()?->name() === 'LIST' || $this->convertedType() === ConvertedType::LIST;
     }
 
-    public function isListElement() : bool
-    {
-        if ($this->parent !== null) {
-            // element
-            if ($this->parent->logicalType()?->name() === 'LIST' || $this->parent->convertedType() === ConvertedType::LIST) {
-                return true;
-            }
-
-            // list.element
-            if ($this->parent->parent()?->logicalType()?->name() === 'LIST' || $this->parent->parent()?->convertedType() === ConvertedType::LIST) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public function isMap() : bool
     {
         return $this->logicalType()?->name() === 'MAP' || $this->convertedType() === ConvertedType::MAP;
@@ -289,11 +274,6 @@ final class NestedColumn implements Column
         return false;
     }
 
-    public function isRequired() : bool
-    {
-        return $this->repetition !== Repetition::OPTIONAL;
-    }
-
     public function isStruct() : bool
     {
         if ($this->isMap()) {
@@ -301,19 +281,6 @@ final class NestedColumn implements Column
         }
 
         if ($this->isList()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    public function isStructElement() : bool
-    {
-        if ($this->isMapElement()) {
-            return false;
-        }
-
-        if ($this->isListElement()) {
             return false;
         }
 
@@ -337,7 +304,7 @@ final class NestedColumn implements Column
         if ($this->repetition === null) {
             $level = 0;
         } else {
-            $level = $this->repetition() === Repetition::REQUIRED ? 0 : 1;
+            $level = $this->repetition === Repetition::REQUIRED ? 0 : 1;
         }
 
         return $this->parent ? $level + $this->parent->maxDefinitionsLevel() : $level;
@@ -372,6 +339,31 @@ final class NestedColumn implements Column
     public function repetition() : ?Repetition
     {
         return $this->repetition;
+    }
+
+    public function repetitions() : Repetitions
+    {
+        if ($this->repetitions !== null) {
+            return $this->repetitions;
+        }
+
+        $repetitions = [$this->repetition];
+
+        $parent = $this->parent();
+
+        while ($parent) {
+            // Skip schema root
+            if ($parent->parent() === null) {
+                break;
+            }
+
+            $repetitions[] = $parent->repetition();
+            $parent = $parent->parent();
+        }
+
+        $this->repetitions = new Repetitions(...\array_reverse(\array_values(\array_filter($repetitions))));
+
+        return $this->repetitions;
     }
 
     public function setParent(self $parent) : void

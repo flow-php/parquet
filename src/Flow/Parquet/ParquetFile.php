@@ -6,13 +6,17 @@ namespace Flow\Parquet;
 
 use Flow\Filesystem\SourceStream;
 use Flow\Parquet\Data\DataConverter;
-use Flow\Parquet\Exception\{InvalidArgumentException, RuntimeException};
+use Flow\Parquet\Exception\{InvalidArgumentException};
 use Flow\Parquet\ParquetFile\ColumnChunkReader\WholeChunkReader;
 use Flow\Parquet\ParquetFile\ColumnChunkViewer\WholeChunkViewer;
-use Flow\Parquet\ParquetFile\Data\DataBuilder;
 use Flow\Parquet\ParquetFile\RowGroup\FlowColumnChunk;
-use Flow\Parquet\ParquetFile\Schema\{Column, FlatColumn, NestedColumn};
-use Flow\Parquet\ParquetFile\{ColumnPageHeader, Metadata, PageReader, Schema};
+use Flow\Parquet\ParquetFile\Schema\{Column, FlatColumn};
+use Flow\Parquet\ParquetFile\{ColumnPageHeader,
+    Metadata,
+    PageReader,
+    RowGroupBuilder\DremelAssembler,
+    RowGroupBuilder\FlatColumnData,
+    Schema};
 use Flow\Parquet\Thrift\FileMetaData;
 use Thrift\Protocol\TCompactProtocol;
 use Thrift\Transport\TMemoryBuffer;
@@ -20,6 +24,8 @@ use Thrift\Transport\TMemoryBuffer;
 final class ParquetFile
 {
     public const PARQUET_MAGIC_NUMBER = 'PAR1';
+
+    private DremelAssembler $dremelAssembler;
 
     private ?Metadata $metadata = null;
 
@@ -29,6 +35,7 @@ final class ParquetFile
         private readonly DataConverter $dataConverter,
         private readonly Options $options,
     ) {
+        $this->dremelAssembler = new DremelAssembler($this->dataConverter);
     }
 
     public function __destruct()
@@ -80,31 +87,19 @@ final class ParquetFile
     public function readChunks(FlatColumn $column, ?int $limit = null, ?int $offset = null) : \Generator
     {
         $reader = new WholeChunkReader(
-            new DataBuilder($this->dataConverter),
             new PageReader($this->byteOrder, $this->options),
             $this->options
         );
-
-        $yieldedRows = 0;
-        $skippedRows = 0;
 
         /** @var FlowColumnChunk $columnChunk */
         foreach ($this->getColumnChunks($column, offset: $offset) as $columnChunk) {
             $skipRows = $offset - $columnChunk->rowsOffset;
 
-            /** @var array $row */
-            foreach ($reader->read($columnChunk->chunk, $column, $this->stream) as $row) {
-                if ($skipRows >= 0 && $skipRows > $skippedRows) {
-                    $skippedRows++;
-
-                    continue;
-                }
-
-                yield $row;
-                $yieldedRows++;
-
-                if ($limit !== null && $yieldedRows >= $limit) {
-                    return;
+            foreach ($reader->read($columnChunk->chunk, $column, $this->stream) as $data) {
+                if ($skipRows > 0) {
+                    yield $data->skipRows($skipRows);
+                } else {
+                    yield $data;
                 }
             }
         }
@@ -140,14 +135,35 @@ final class ParquetFile
             }
         }
 
-        $rows = new \MultipleIterator(\MultipleIterator::MIT_KEYS_ASSOC);
+        $totalRows = $this->metadata()->rowsNumber();
 
-        foreach ($columns as $columnName) {
-            $rows->attachIterator($this->read($this->schema()->get($columnName), $limit, $offset), $columnName);
+        if ($offset > $totalRows) {
+            return;
         }
 
-        /** @var array<string, mixed> $row */
-        foreach ($rows as $row) {
+        if ($offset !== null) {
+            if ($totalRows > $offset) {
+                $totalRows -= $offset;
+            } else {
+                $totalRows = 0;
+            }
+        }
+
+        $totalRows = min($totalRows, $limit ?? $totalRows);
+
+        $columnsData = [];
+
+        foreach ($columns as $columnName) {
+            $columnsData[$columnName] = $this->read($this->schema()->get($columnName), $limit, $offset);
+        }
+
+        for ($i = 0; $i < $totalRows; $i++) {
+            $row = [];
+
+            foreach ($columnsData as $columnData) {
+                $row = \array_merge($row, $columnData[$i]);
+            }
+
             yield $row;
         }
     }
@@ -180,177 +196,41 @@ final class ParquetFile
         }
     }
 
-    private function read(Column $column, ?int $limit = null, ?int $offset = null) : \Generator
+    private function read(Column $column, ?int $limit = null, ?int $offset = null) : array
     {
+        $columnData = FlatColumnData::initialize($column);
+
         if ($column instanceof FlatColumn) {
-            return $this->readFlat($column, $limit, $offset);
-        }
+            $rows = [];
 
-        if ($column instanceof NestedColumn) {
-            if ($column->isList()) {
-                return $this->readList($column, $limit, $offset);
+            foreach ($this->readChunks($column, $limit, $offset) as $data) {
+                $columnData->addValues($data);
             }
 
-            if ($column->isMap()) {
-                return $this->readMap($column, $limit, $offset);
+            foreach ($this->dremelAssembler->assemble($column, $columnData) as $row) {
+                $rows[] = $row;
             }
 
-            return $this->readStruct($column, limit: $limit, offset: $offset);
+            return $rows;
         }
 
-        throw new RuntimeException('Unknown column type');
-    }
-
-    private function readFlat(FlatColumn $column, ?int $limit = null, ?int $offset = null) : \Generator
-    {
-        return $this->readChunks($column, $limit, $offset);
-    }
-
-    private function readList(NestedColumn $listColumn, ?int $limit = null, ?int $offset = null) : \Generator
-    {
-        $elementColumn = $listColumn->getListElement();
-
-        if ($elementColumn instanceof FlatColumn) {
-            return $this->readFlat($elementColumn, $limit, $offset);
+        if (!$column instanceof Schema\NestedColumn) {
+            throw new InvalidArgumentException('Column must be instance of FlatColumn or NestedColumn');
         }
 
-        /** @var NestedColumn $elementColumn */
-        if ($elementColumn->isList()) {
-            return $this->readList($elementColumn, $limit, $offset);
-        }
-
-        if ($elementColumn->isMap()) {
-            return $this->readMap($elementColumn, $limit, $offset);
-        }
-
-        return $this->readStruct($elementColumn, isCollection: true, limit: $limit, offset: $offset);
-    }
-
-    private function readMap(NestedColumn $mapColumn, ?int $limit = null, ?int $offset = null) : \Generator
-    {
-        $keysColumn = $mapColumn->getMapKeyColumn();
-        $valuesColumn = $mapColumn->getMapValueColumn();
-
-        $keys = $this->readFlat($keysColumn, $limit, $offset);
-
-        $values = null;
-
-        if ($valuesColumn instanceof FlatColumn) {
-            $values = $this->readFlat($valuesColumn, $limit, $offset);
-        }
-
-        /** @var NestedColumn $valuesColumn */
-        if ($valuesColumn->isList()) {
-            $values = $this->readList($valuesColumn, $limit, $offset);
-        }
-
-        if ($valuesColumn->isMap()) {
-            $values = $this->readMap($valuesColumn, $limit, $offset);
-        }
-
-        if ($valuesColumn->isStruct()) {
-            $values = $this->readStruct($valuesColumn, isCollection: true, limit: $limit, offset: $offset);
-        }
-
-        if ($values === null) {
-            throw new RuntimeException('Unknown column type');
-        }
-
-        $mapFlat = new \MultipleIterator(\MultipleIterator::MIT_KEYS_ASSOC);
-        $mapFlat->attachIterator($keys, 'keys');
-        $mapFlat->attachIterator($values, 'values');
-
-        foreach ($mapFlat as $row) {
-
-            if ($row['keys'] === null) {
-                yield null;
-            } else {
-                if (\is_array($row['keys'])) {
-                    yield \Flow\Parquet\array_combine_recursive($row['keys'], $row['values']);
-                } else {
-                    yield [$row['keys'] => $row['values']];
-                }
+        foreach ($column->childrenFlat() as $child) {
+            foreach ($this->readChunks($child, $limit, $offset) as $data) {
+                $columnData->addValues($data);
             }
         }
-    }
 
-    /**
-     * @param bool $isCollection - when structure is a map or list element, each struct child is a collection for example ['int' => [1, 2, 3]] instead of ['int' => 1]
-     */
-    private function readStruct(NestedColumn $structColumn, bool $isCollection = false, ?int $limit = null, ?int $offset = null) : \Generator
-    {
-        $childrenRowsData = new \MultipleIterator(\MultipleIterator::MIT_KEYS_ASSOC);
+        $rows = [];
 
-        foreach ($structColumn->children() as $child) {
-            if ($child instanceof FlatColumn) {
-                $childrenRowsData->attachIterator($this->read($child, $limit, $offset), $child->flatPath());
-
-                continue;
-            }
-
-            if ($child instanceof NestedColumn) {
-                if ($child->isList()) {
-                    $childrenRowsData->attachIterator($this->readList($child, $limit, $offset), $child->flatPath());
-
-                    continue;
-                }
-
-                if ($child->isMap()) {
-                    $childrenRowsData->attachIterator($this->readMap($child, $limit, $offset), $child->flatPath());
-
-                    continue;
-                }
-
-                $childrenRowsData->attachIterator($this->readStruct($child, isCollection: $isCollection, limit: $limit, offset: $offset), $child->flatPath());
-
-                continue;
-            }
-
-            throw new RuntimeException('Unknown column type');
+        foreach ($this->dremelAssembler->assemble($column, $columnData) as $row) {
+            $rows[] = $row;
         }
 
-        foreach ($childrenRowsData as $childrenRowData) {
-            if ($isCollection) {
-
-                $structsCollection = new \MultipleIterator(\MultipleIterator::MIT_KEYS_ASSOC);
-
-                /** @var null|array<array-key, mixed> $childColumnValue */
-                foreach ($childrenRowData as $childColumnPath => $childColumnValue) {
-                    if ($childColumnValue !== null) {
-                        $childColumn = $this->schema()->get($childColumnPath);
-                        $structsCollection->attachIterator(new \ArrayIterator($childColumnValue), $childColumn->name());
-                    }
-                }
-
-                $structs = null;
-
-                foreach ($structsCollection as $structData) {
-                    $structs[] = $structData;
-                }
-
-                yield $structs;
-            } else {
-                $row = [];
-
-                $isNull = true;
-
-                foreach ($childrenRowData as $childColumnPath => $childColumnValue) {
-                    $childColumn = $this->schema()->get($childColumnPath);
-
-                    $row[$childColumn->name()] = $childColumnValue;
-
-                    if ($childColumnValue !== null) {
-                        $isNull = false;
-                    }
-                }
-
-                if ($isNull) {
-                    yield null;
-                } else {
-                    yield $row;
-                }
-            }
-        }
+        return $rows;
     }
 
     /**

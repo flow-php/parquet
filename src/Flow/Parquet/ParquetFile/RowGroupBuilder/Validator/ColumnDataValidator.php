@@ -6,20 +6,68 @@ namespace Flow\Parquet\ParquetFile\RowGroupBuilder\Validator;
 
 use Flow\Parquet\Exception\ValidationException;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator;
-use Flow\Parquet\ParquetFile\Schema\{Column, FlatColumn, LogicalType, PhysicalType, Repetition};
+use Flow\Parquet\ParquetFile\Schema\{Column, FlatColumn, LogicalType, NestedColumn, PhysicalType, Repetition};
 
 final class ColumnDataValidator implements Validator
 {
     public function validate(Column $column, mixed $data) : void
     {
-        if ($column->repetition() === Repetition::REQUIRED) {
+        if ($column->repetition()?->isRequired()) {
             if ($data === null) {
-                throw new ValidationException(\sprintf('Column "%s" is required', $column->name()));
+                throw new ValidationException(\sprintf('Column "%s" is required', $column->flatPath()));
+            }
+        }
+
+        if ($column->repetition()?->isRepeated() && !\is_array($data)) {
+            throw new ValidationException(\sprintf('Column "%s" is not array, got %s', $column->flatPath(), \gettype($data)));
+        }
+
+        if ($column->repetition() === Repetition::OPTIONAL) {
+            if ($data === null) {
+                return;
             }
         }
 
         if ($column instanceof FlatColumn) {
             $this->validateData($column, $data);
+
+            return;
+        }
+
+        /**
+         * @var NestedColumn $column
+         */
+        if ($column->isList()) {
+            if (!\is_array($data)) {
+                throw new ValidationException(\sprintf('Column "%s" is not array, got %s', $column->flatPath(), \gettype($data)));
+            }
+
+            foreach ($data as $value) {
+                $this->validate($column->getListElement(), $value);
+            }
+
+            return;
+        }
+
+        if ($column->isMap()) {
+            if (!\is_array($data)) {
+                throw new ValidationException(\sprintf('Column "%s" is not array, got %s', $column->flatPath(), \gettype($data)));
+            }
+
+            foreach ($data as $key => $value) {
+                $this->validate($column->getMapKeyColumn(), $key);
+                $this->validate($column->getMapValueColumn(), $value);
+            }
+
+            return;
+        }
+
+        if (!\is_array($data)) {
+            throw new ValidationException(\sprintf('Column "%s" is not array, got %s', $column->flatPath(), \gettype($data)));
+        }
+
+        foreach ($column->children() as $key => $child) {
+            $this->validate($child, $data[$child->name()] ?? null);
         }
     }
 
@@ -33,7 +81,7 @@ final class ColumnDataValidator implements Validator
             return;
         }
 
-        if ($column->repetition() !== Repetition::REQUIRED) {
+        if ($column->repetition()?->isOptional()) {
             if ($data === null) {
                 return;
             }

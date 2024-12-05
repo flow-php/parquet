@@ -7,11 +7,10 @@ namespace Flow\Parquet\ParquetFile\ColumnChunkReader;
 use Flow\Filesystem\SourceStream;
 use Flow\Parquet\Exception\RuntimeException;
 use Flow\Parquet\Options;
-use Flow\Parquet\ParquetFile\Data\DataBuilder;
-use Flow\Parquet\ParquetFile\Page\{ColumnData, PageHeader};
+use Flow\Parquet\ParquetFile\Page\{PageHeader};
 use Flow\Parquet\ParquetFile\RowGroup\ColumnChunk;
 use Flow\Parquet\ParquetFile\Schema\FlatColumn;
-use Flow\Parquet\ParquetFile\{ColumnChunkReader, PageReader};
+use Flow\Parquet\ParquetFile\{ColumnChunkReader, PageReader, RowGroupBuilder\ColumnData\FlatColumnValues};
 use Flow\Parquet\ThriftStream\{TPhpFileStream};
 use Thrift\Protocol\TCompactProtocol;
 use Thrift\Transport\{TBufferedTransport};
@@ -19,15 +18,11 @@ use Thrift\Transport\{TBufferedTransport};
 final class WholeChunkReader implements ColumnChunkReader
 {
     public function __construct(
-        private readonly DataBuilder $dataBuilder,
         private readonly PageReader $pageReader,
         private readonly Options $options,
     ) {
     }
 
-    /**
-     * @return \Generator<array<mixed>>
-     */
     public function read(ColumnChunk $columnChunk, FlatColumn $column, SourceStream $stream) : \Generator
     {
         $pageStream = fopen('php://temp', 'rb+');
@@ -57,7 +52,7 @@ final class WholeChunkReader implements ColumnChunkReader
             $dictionary = null;
         }
 
-        $columnData = ColumnData::initialize($column);
+        $data = new FlatColumnValues($column);
 
         $rowsToRead = $columnChunk->valuesCount();
 
@@ -65,25 +60,22 @@ final class WholeChunkReader implements ColumnChunkReader
             $dataHeader = $dictionary ? $this->readHeader($pageStream) : $header;
 
             /** There are no more pages in given column chunk */
-            if ($dataHeader === null || $columnData->size() >= $rowsToRead || $dataHeader->type()->isDataPage() === false) {
+            if ($dataHeader === null || $data->rowsCount() >= $rowsToRead || $dataHeader->type()->isDataPage() === false) {
                 $yieldedRows = 0;
 
-                /** @var array $row */
-                foreach ($this->dataBuilder->build($columnData, $column) as $row) {
-                    yield $row;
-                    $yieldedRows++;
+                yield $data;
+                $yieldedRows += $data->rowsCount();
 
-                    if ($yieldedRows >= $rowsToRead) {
-                        \fclose($pageStream);
+                if ($yieldedRows >= $rowsToRead) {
+                    \fclose($pageStream);
 
-                        return;
-                    }
+                    return;
                 }
 
                 break;
             }
 
-            $columnData = $columnData->merge($this->pageReader->readData(
+            $data = $data->merge($this->pageReader->readData(
                 $column,
                 $dataHeader,
                 $columnChunk->codec(),

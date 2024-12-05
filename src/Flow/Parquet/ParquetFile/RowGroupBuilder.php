@@ -6,7 +6,7 @@ namespace Flow\Parquet\ParquetFile;
 
 use Flow\Parquet\Data\DataConverter;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator\{ColumnDataValidator, DisabledValidator};
-use Flow\Parquet\ParquetFile\RowGroupBuilder\{ColumnChunkBuilder, Flattener, PageSizeCalculator, RowGroupContainer, RowGroupStatistics};
+use Flow\Parquet\ParquetFile\RowGroupBuilder\{ColumnChunkBuilder, DremelShredder, PageSizeCalculator, RowGroupContainer, RowGroupStatistics};
 use Flow\Parquet\{Option, Options};
 
 /**
@@ -19,7 +19,7 @@ final class RowGroupBuilder
      */
     private array $chunkBuilders;
 
-    private Flattener $flattener;
+    private DremelShredder $shredder;
 
     private RowGroupStatistics $statistics;
 
@@ -30,10 +30,11 @@ final class RowGroupBuilder
         private readonly DataConverter $dataConverter,
         private readonly PageSizeCalculator $calculator,
     ) {
-        $this->flattener = new Flattener(
+        $this->shredder = new DremelShredder(
             $this->options->getBool(Option::VALIDATE_DATA)
                 ? new ColumnDataValidator()
-                : new DisabledValidator()
+                : new DisabledValidator(),
+            $this->dataConverter
         );
 
         $this->chunkBuilders = $this->createColumnChunkBuilders($this->schema, $this->compression);
@@ -45,17 +46,23 @@ final class RowGroupBuilder
      */
     public function addRow(array $row) : void
     {
-        $flatRow = [];
-
         foreach ($this->schema->columns() as $column) {
-            $flatRow[] = $this->flattener->flattenColumn($column, $row);
-        }
-
-        foreach (\array_merge_recursive(...$flatRow) as $columnPath => $columnValues) {
-            $this->chunkBuilders[$columnPath]->addRow($columnValues);
+            foreach ($this->shredder->shred($column, $row)->flatValues() as $flatValue) {
+                $this->chunkBuilders[$flatValue->flatPath()]->addRow($flatValue);
+            }
         }
 
         $this->statistics->addRow();
+    }
+
+    /**
+     * ColumnChunkBuilders organized by column flat path.
+     *
+     * @return array<string, ColumnChunkBuilder>
+     */
+    public function chunkBuilders() : array
+    {
+        return $this->chunkBuilders;
     }
 
     public function flush(int $fileOffset) : RowGroupContainer
@@ -110,7 +117,7 @@ final class RowGroupBuilder
         $builders = [];
 
         foreach ($schema->columnsFlat() as $column) {
-            $builders[$column->flatPath()] = new ColumnChunkBuilder($column, $compression, $this->dataConverter, $this->calculator, $this->options);
+            $builders[$column->flatPath()] = new ColumnChunkBuilder($column, $compression, $this->calculator, $this->options);
         }
 
         return $builders;

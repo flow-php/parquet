@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Flow\Parquet\Tests\Unit\Data\Converter;
 
-use Flow\ETL\Adapter\Elasticsearch\Tests\Integration\TestCase;
 use Flow\Parquet\Data\Converter\TimeConverter;
+use PHPUnit\Framework\TestCase;
 
 final class TimeConverterTest extends TestCase
 {

@@ -6,8 +6,8 @@ namespace Flow\Parquet\Tests\Unit\ParquetFile\RowGroupBuilder\Dremel;
 
 use Flow\Parquet\Data\DataConverter;
 use Flow\Parquet\Options;
-use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator\ColumnDataValidator;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\{DremelAssembler, DremelShredder, FlatColumnData};
+use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator\ColumnDataValidator;
 use Flow\Parquet\ParquetFile\Schema;
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, ListElement, MapKey, MapValue, NestedColumn};
 use PHPUnit\Framework\Attributes\TestWith;

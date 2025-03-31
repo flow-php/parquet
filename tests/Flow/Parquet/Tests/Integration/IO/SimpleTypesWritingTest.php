@@ -6,9 +6,9 @@ namespace Flow\Parquet\Tests\Integration\IO;
 
 use function Flow\ETL\DSL\{generate_random_int, generate_random_string};
 use Faker\Factory;
+use Flow\Parquet\{Consts, Reader, Writer};
 use Flow\Parquet\ParquetFile\Schema;
 use Flow\Parquet\ParquetFile\Schema\FlatColumn;
-use Flow\Parquet\{Consts, Reader, Writer};
 use PHPUnit\Framework\TestCase;
 
 final class SimpleTypesWritingTest extends TestCase

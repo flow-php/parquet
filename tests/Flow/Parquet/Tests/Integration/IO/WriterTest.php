@@ -7,11 +7,11 @@ namespace Flow\Parquet\Tests\Integration\IO;
 use function Flow\ETL\DSL\{generate_random_int, generate_random_string};
 use Composer\InstalledVersions;
 use Faker\Factory;
-use Flow\Filesystem\Stream\NativeLocalDestinationStream;
 use Flow\Filesystem\{Path};
+use Flow\Filesystem\Stream\NativeLocalDestinationStream;
+use Flow\Parquet\{Consts, Option, Options, Reader, Writer};
 use Flow\Parquet\ParquetFile\Schema;
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, ListElement, NestedColumn};
-use Flow\Parquet\{Consts, Option, Options, Reader, Writer};
 use PHPUnit\Framework\TestCase;
 
 final class WriterTest extends TestCase

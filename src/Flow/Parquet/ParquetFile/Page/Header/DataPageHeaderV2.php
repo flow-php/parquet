@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Flow\Parquet\ParquetFile\Page\Header;
 
 use Flow\Parquet\Options;
-use Flow\Parquet\ParquetFile\RowGroup\StatisticsReader;
 use Flow\Parquet\ParquetFile\{Encodings, Statistics};
+use Flow\Parquet\ParquetFile\RowGroup\StatisticsReader;
 
 final readonly class DataPageHeaderV2
 {

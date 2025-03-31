@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Flow\Parquet\ParquetFile\RowGroup;
 
 use Flow\Parquet\Options;
-use Flow\Parquet\ParquetFile\Schema\PhysicalType;
 use Flow\Parquet\ParquetFile\{Compressions, Encodings, Statistics};
+use Flow\Parquet\ParquetFile\Schema\PhysicalType;
 use Flow\Parquet\Thrift\ColumnMetaData;
 
 final readonly class ColumnChunk

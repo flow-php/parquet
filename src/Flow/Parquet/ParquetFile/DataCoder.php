@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Flow\Parquet\ParquetFile;
 
 use Flow\Parquet\BinaryReader\BinaryBufferReader;
+use Flow\Parquet\{ByteOrder, Options, ParquetFile\RowGroupBuilder\ColumnData\FlatColumnValues};
 use Flow\Parquet\Exception\RuntimeException;
 use Flow\Parquet\ParquetFile\Data\{BitWidth, PlainValueUnpacker, RLEBitPackedHybrid};
-use Flow\Parquet\ParquetFile\Page\Header\{DataPageHeader, DataPageHeaderV2, DictionaryPageHeader};
 use Flow\Parquet\ParquetFile\Page\{Dictionary};
+use Flow\Parquet\ParquetFile\Page\Header\{DataPageHeader, DataPageHeaderV2, DictionaryPageHeader};
 use Flow\Parquet\ParquetFile\Schema\FlatColumn;
-use Flow\Parquet\{ByteOrder, Options, ParquetFile\RowGroupBuilder\ColumnData\FlatColumnValues};
 
 final readonly class DataCoder
 {

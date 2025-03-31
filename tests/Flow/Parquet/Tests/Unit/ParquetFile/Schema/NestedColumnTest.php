@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Flow\Parquet\Tests\Unit\ParquetFile\Schema;
 
 use Flow\Parquet\ParquetFile\Schema;
-use Flow\Parquet\ParquetFile\Schema\Repetition;
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, ListElement, MapKey, MapValue, NestedColumn};
+use Flow\Parquet\ParquetFile\Schema\Repetition;
 use PHPUnit\Framework\TestCase;
 
 final class NestedColumnTest extends TestCase

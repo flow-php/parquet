@@ -9,14 +9,14 @@ use Flow\Parquet\Data\DataConverter;
 use Flow\Parquet\Exception\{InvalidArgumentException};
 use Flow\Parquet\ParquetFile\ColumnChunkReader\WholeChunkReader;
 use Flow\Parquet\ParquetFile\ColumnChunkViewer\WholeChunkViewer;
-use Flow\Parquet\ParquetFile\RowGroup\FlowColumnChunk;
-use Flow\Parquet\ParquetFile\Schema\{Column, FlatColumn};
 use Flow\Parquet\ParquetFile\{ColumnPageHeader,
     Metadata,
     PageReader,
     RowGroupBuilder\DremelAssembler,
     RowGroupBuilder\FlatColumnData,
     Schema};
+use Flow\Parquet\ParquetFile\RowGroup\FlowColumnChunk;
+use Flow\Parquet\ParquetFile\Schema\{Column, FlatColumn};
 use Flow\Parquet\Thrift\FileMetaData;
 use Thrift\Protocol\TCompactProtocol;
 use Thrift\Transport\TMemoryBuffer;

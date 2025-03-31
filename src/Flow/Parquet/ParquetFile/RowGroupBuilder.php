@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Flow\Parquet\ParquetFile;
 
 use Flow\Parquet\Data\DataConverter;
-use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator\{ColumnDataValidator, DisabledValidator};
-use Flow\Parquet\ParquetFile\RowGroupBuilder\{ColumnChunkBuilder, DremelShredder, PageSizeCalculator, RowGroupContainer, RowGroupStatistics};
 use Flow\Parquet\{Option, Options};
+use Flow\Parquet\ParquetFile\RowGroupBuilder\{ColumnChunkBuilder, DremelShredder, PageSizeCalculator, RowGroupContainer, RowGroupStatistics};
+use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator\{ColumnDataValidator, DisabledValidator};
 
 final class RowGroupBuilder
 {

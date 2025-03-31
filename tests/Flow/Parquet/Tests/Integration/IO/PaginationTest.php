@@ -6,10 +6,10 @@ namespace Flow\Parquet\Tests\Integration\IO;
 
 use function Flow\ETL\DSL\generate_random_int;
 use Flow\Parquet\Exception\InvalidArgumentException;
+use Flow\Parquet\{Option, Options, Reader, Writer};
 use Flow\Parquet\ParquetFile\Schema;
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, NestedColumn};
 use Flow\Parquet\ParquetFile\Schema\{ListElement, MapKey, MapValue};
-use Flow\Parquet\{Option, Options, Reader, Writer};
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 

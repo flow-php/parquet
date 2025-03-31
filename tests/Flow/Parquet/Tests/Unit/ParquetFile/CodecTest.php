@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Flow\Parquet\Tests\Unit\ParquetFile;
 
-use Flow\Parquet\ParquetFile\{Codec, Compressions};
 use Flow\Parquet\{Option, Options};
+use Flow\Parquet\ParquetFile\{Codec, Compressions};
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 

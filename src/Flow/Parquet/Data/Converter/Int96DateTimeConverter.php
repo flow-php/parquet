@@ -7,8 +7,8 @@ namespace Flow\Parquet\Data\Converter;
 use Flow\Parquet\BinaryReader\Bytes;
 use Flow\Parquet\Data\Converter;
 use Flow\Parquet\Exception\RuntimeException;
-use Flow\Parquet\ParquetFile\Schema\{FlatColumn, PhysicalType};
 use Flow\Parquet\{Option, Options};
+use Flow\Parquet\ParquetFile\Schema\{FlatColumn, PhysicalType};
 
 final class Int96DateTimeConverter implements Converter
 {

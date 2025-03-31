@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Flow\Parquet\Tests\Integration\ParquetFile;
 
 use Flow\Parquet\Data\DataConverter;
+use Flow\Parquet\{Options};
+use Flow\Parquet\ParquetFile\{Compressions, RowGroupBuilder, Schema};
 use Flow\Parquet\ParquetFile\RowGroupBuilder\PageSizeCalculator;
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, NestedColumn};
-use Flow\Parquet\ParquetFile\{Compressions, RowGroupBuilder, Schema};
-use Flow\Parquet\{Options};
 use PHPUnit\Framework\TestCase;
 
 final class RowGroupBuilderStructuresTest extends TestCase

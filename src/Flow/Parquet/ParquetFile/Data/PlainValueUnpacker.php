@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Flow\Parquet\ParquetFile\Data;
 
+use Flow\Parquet\{BinaryReader, Option, Options};
 use Flow\Parquet\Exception\RuntimeException;
 use Flow\Parquet\ParquetFile\Schema\{ConvertedType, FlatColumn, LogicalType, PhysicalType};
-use Flow\Parquet\{BinaryReader, Option, Options};
 
 final readonly class PlainValueUnpacker
 {

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Flow\Parquet\ParquetFile\RowGroupBuilder;
 
+use Flow\Parquet\{Option, Options, ParquetFile\RowGroupBuilder\ColumnData\FlatColumnValues};
 use Flow\Parquet\ParquetFile\Compressions;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\PageBuilder\{DataPageBuilder, DictionaryPageBuilder};
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, PhysicalType};
-use Flow\Parquet\{Option, Options, ParquetFile\RowGroupBuilder\ColumnData\FlatColumnValues};
 
 final readonly class PagesBuilder
 {

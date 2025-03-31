@@ -6,9 +6,9 @@ namespace Flow\Parquet\Tests\Integration\IO;
 
 use function Flow\ETL\DSL\{generate_random_int, generate_random_string};
 use Faker\Factory;
-use Flow\Parquet\ParquetFile\Schema\{FlatColumn, ListElement, NestedColumn};
-use Flow\Parquet\ParquetFile\{Compressions, Schema};
 use Flow\Parquet\{Consts, Reader, Writer};
+use Flow\Parquet\ParquetFile\{Compressions, Schema};
+use Flow\Parquet\ParquetFile\Schema\{FlatColumn, ListElement, NestedColumn};
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 

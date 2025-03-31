@@ -7,6 +7,8 @@ namespace Flow\Parquet\Tests\Integration\ParquetFile\RowGroupBuilder;
 use function Flow\ETL\DSL\generate_random_int;
 use Faker\Factory;
 use Flow\Parquet\Data\DataConverter;
+use Flow\Parquet\{Option, Options};
+use Flow\Parquet\ParquetFile\{Compressions, Encodings, Schema};
 use Flow\Parquet\ParquetFile\Page\Header\{DataPageHeader, DictionaryPageHeader, Type};
 use Flow\Parquet\ParquetFile\Page\PageHeader;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\{ColumnChunkStatistics,
@@ -16,8 +18,6 @@ use Flow\Parquet\ParquetFile\RowGroupBuilder\{ColumnChunkStatistics,
     PagesBuilder,
     Validator\ColumnDataValidator};
 use Flow\Parquet\ParquetFile\Schema\FlatColumn;
-use Flow\Parquet\ParquetFile\{Compressions, Encodings, Schema};
-use Flow\Parquet\{Option, Options};
 use PHPUnit\Framework\TestCase;
 
 final class PagesBuilderTest extends TestCase

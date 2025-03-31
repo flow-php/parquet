@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Flow\Parquet\ParquetFile\RowGroupBuilder;
 
-use Flow\Parquet\ParquetFile\Schema\{FlatColumn, PhysicalType};
 use Flow\Parquet\{Option, Options};
+use Flow\Parquet\ParquetFile\Schema\{FlatColumn, PhysicalType};
 
 final readonly class PageSizeCalculator
 {

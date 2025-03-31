@@ -6,12 +6,12 @@ namespace Flow\Parquet\ParquetFile\RowGroupBuilder\PageBuilder;
 
 use Flow\Parquet\BinaryWriter\BinaryBufferWriter;
 use Flow\Parquet\Options;
+use Flow\Parquet\ParquetFile\{Codec, Compressions, Encodings, RowGroupBuilder\ColumnData\FlatColumnValues};
 use Flow\Parquet\ParquetFile\Data\PlainValuesPacker;
 use Flow\Parquet\ParquetFile\Page\Header\{DictionaryPageHeader, Type};
 use Flow\Parquet\ParquetFile\Page\PageHeader;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\PageContainer;
 use Flow\Parquet\ParquetFile\Schema\FlatColumn;
-use Flow\Parquet\ParquetFile\{Codec, Compressions, Encodings, RowGroupBuilder\ColumnData\FlatColumnValues};
 use Thrift\Protocol\TCompactProtocol;
 use Thrift\Transport\TMemoryBuffer;
 

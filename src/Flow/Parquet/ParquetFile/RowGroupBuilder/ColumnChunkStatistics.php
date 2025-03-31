@@ -6,7 +6,6 @@ namespace Flow\Parquet\ParquetFile\RowGroupBuilder;
 
 use function Flow\Parquet\array_flatten;
 use Flow\Parquet\Data\ObjectToString;
-use Flow\Parquet\Exception\RuntimeException;
 use Flow\Parquet\ParquetFile\RowGroupBuilder\Statistics\Comparator;
 use Flow\Parquet\ParquetFile\Schema\{ColumnPrimitiveType, FlatColumn, PhysicalType};
 
@@ -174,8 +173,6 @@ final class ColumnChunkStatistics
             case PhysicalType::BYTE_ARRAY:
                 return $this->totalStringLength() + (4 * $this->notNullCount()); // each string starts with int32 length
         }
-
-        throw new RuntimeException('Unknown column type');
     }
 
     public function values() : array

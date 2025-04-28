@@ -32,7 +32,6 @@ final class Int64DateTimeConverter implements Converter
 
     private function dateTimeToMicroseconds(\DateTimeInterface $dateTime) : int
     {
-        /** @phpstan-ignore-next-line */
         return (int) \bcadd(\bcmul($dateTime->format('U'), '1000000'), $dateTime->format('u'));
     }
 

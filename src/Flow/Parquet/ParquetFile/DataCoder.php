@@ -62,6 +62,7 @@ final readonly class DataCoder
                 $column,
                 $repetitionLevels,
                 $definitionLevels,
+                /** @phpstan-ignore-next-line */
                 (new PlainValueUnpacker($reader, $this->options))->unpack($column, $nonEmptyValuesCount)
             );
         }
@@ -134,6 +135,7 @@ final readonly class DataCoder
                 $column,
                 $repetitionLevels,
                 $definitionLevels,
+                /** @phpstan-ignore-next-line */
                 (new PlainValueUnpacker($reader, $this->options))->unpack($column, $nonEmptyValuesCount)
             );
         }
@@ -179,6 +181,9 @@ final readonly class DataCoder
         );
     }
 
+    /**
+     * @param array<int> $definitions
+     */
     private function countValues(array $definitions, FlatColumn $column) : int
     {
         $maxDefinitionLevel = $column->maxDefinitionsLevel();
@@ -193,6 +198,9 @@ final readonly class DataCoder
         return $valuesCount;
     }
 
+    /**
+     * @return array<int>
+     */
     private function readRLEBitPackedHybrid(BinaryBufferReader $reader, RLEBitPackedHybrid $RLEBitPackedHybrid, int $bitWidth, int $expectedValuesCount) : array
     {
         return $RLEBitPackedHybrid->decodeHybrid($reader, $bitWidth, $expectedValuesCount);

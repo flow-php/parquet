@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Flow\Parquet\Data\Converter;
 
+use function Flow\Types\DSL\type_instance_of;
 use Flow\Parquet\BinaryReader\Bytes;
 use Flow\Parquet\Data\Converter;
 use Flow\Parquet\Exception\RuntimeException;
@@ -14,7 +15,7 @@ final class Int96DateTimeConverter implements Converter
 {
     public function fromParquetType(mixed $data) : \DateTimeImmutable
     {
-        return $this->convertArrayOfBytesToDateTime($data);
+        return $this->convertArrayOfBytesToDateTime(type_instance_of(Bytes::class)->assert($data));
     }
 
     public function isFor(FlatColumn $column, Options $options) : bool
@@ -26,6 +27,9 @@ final class Int96DateTimeConverter implements Converter
         return false;
     }
 
+    /**
+     * @return array<never>
+     */
     public function toParquetType(mixed $data) : array
     {
         throw new RuntimeException("Converting DateTime to INT96 is deprecated and should not be used, please use INT64 to store \DateTime objects as number of microseconds since Jan 1 1970.");

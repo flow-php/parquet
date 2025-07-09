@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Flow\Parquet\Tests\Integration\ParquetFile;
 
 use Flow\Parquet\Data\DataConverter;
+use Flow\Parquet\Dremel\{DremelAssembler, DremelShredder};
+use Flow\Parquet\Dremel\Validator\{ColumnDataValidator};
 use Flow\Parquet\Options;
-use Flow\Parquet\ParquetFile\RowGroupBuilder\{DremelAssembler, DremelShredder};
-use Flow\Parquet\ParquetFile\RowGroupBuilder\Validator\{ColumnDataValidator};
 use Flow\Parquet\ParquetFile\Schema;
 use Flow\Parquet\ParquetFile\Schema\{FlatColumn, ListElement, NestedColumn, Repetition};
 use PHPUnit\Framework\TestCase;
@@ -24,8 +24,8 @@ final class SchemaTest extends TestCase
 
         foreach ($data as $row) {
             foreach ($schema->columns() as $column) {
-                $data = $shredder->shred($column, $row);
-                self::assertEquals($row[$column->name()], $assembler->assemble($column, $data)[0][$column->name()]);
+                $data = $shredder->shred($column, $row)->toReadColumnData();
+                self::assertEquals($row[$column->name()], \iterator_to_array($assembler->assemble($column, $data))[0][$column->name()]);
             }
         }
     }

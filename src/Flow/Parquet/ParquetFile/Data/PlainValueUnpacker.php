@@ -18,15 +18,15 @@ final readonly class PlainValueUnpacker
     }
 
     /**
-     * @return array<mixed>
+     * @return \Generator<mixed>
      */
-    public function unpack(FlatColumn $column, int $total) : array
+    public function unpack(FlatColumn $column, int $total) : \Generator
     {
         if ($total === 0) {
-            return [];
+            return;
         }
 
-        return match ($column->type()) {
+        $generator = match ($column->type()) {
             PhysicalType::INT32 => match ($column->convertedType()) {
                 ConvertedType::INT_16 => $this->reader->readInts16($total),
                 default => $this->reader->readInts32($total),
@@ -49,5 +49,9 @@ final readonly class PlainValueUnpacker
             },
             PhysicalType::BOOLEAN => $this->reader->readBooleans($total),
         };
+
+        foreach ($generator as $value) {
+            yield $value;
+        }
     }
 }

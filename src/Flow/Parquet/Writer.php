@@ -8,10 +8,16 @@ use Composer\InstalledVersions;
 use Flow\Filesystem\{DestinationStream, Path};
 use Flow\Filesystem\Stream\{NativeLocalDestinationStream};
 use Flow\Parquet\Data\DataConverter;
+use Flow\Parquet\Dremel\{DremelShredder};
+use Flow\Parquet\Dremel\Validator\{ColumnDataValidator, DisabledValidator};
 use Flow\Parquet\Exception\{InvalidArgumentException, RuntimeException};
-use Flow\Parquet\ParquetFile\{Compressions, Metadata, RowGroupBuilder, RowGroups, Schema};
-use Flow\Parquet\ParquetFile\RowGroupBuilder\PageSizeCalculator;
+use Flow\Parquet\ParquetFile\{Compressions,
+    Metadata,
+    RowGroups,
+    Schema
+};
 use Flow\Parquet\ThriftStream\TPhpFileStream;
+use Flow\Parquet\Writer\RowGroupBuilder;
 use Thrift\Protocol\TCompactProtocol;
 
 final class Writer
@@ -173,7 +179,7 @@ final class Writer
         $this->rowGroupBuilder()->addRow($row);
         $interval = (int) $this->options->get(Option::ROW_GROUP_SIZE_CHECK_INTERVAL);
 
-        if (($this->rowGroupBuilder()->statistics()->rowsCount() % $interval === 0) && $this->rowGroupBuilder()->isFull()) {
+        if (($this->rowGroupBuilder()->rowsCount() % $interval === 0) && $this->rowGroupBuilder()->isFull()) {
             $rowGroupContainer = $this->rowGroupBuilder()->flush($this->fileOffset);
             $this->stream()->append($rowGroupContainer->binaryBuffer);
             $this->metadata()->rowGroups()->add($rowGroupContainer->rowGroup);
@@ -198,12 +204,19 @@ final class Writer
     private function initGroupBuilder(Schema $schema) : void
     {
         if ($this->rowGroupBuilder === null) {
+            $dataConverter = DataConverter::initialize($this->options);
+            $shredder = new DremelShredder(
+                $this->options->getBool(Option::VALIDATE_DATA)
+                    ? new ColumnDataValidator()
+                    : new DisabledValidator(),
+                $dataConverter
+            );
+
             $this->rowGroupBuilder = new RowGroupBuilder(
                 $schema,
                 $this->compression,
                 $this->options,
-                DataConverter::initialize($this->options),
-                new PageSizeCalculator($this->options)
+                $shredder
             );
         } else {
             throw new RuntimeException('RowGroupBuilder is already initialized, please close the writer first before initializing a new RowGroupBuilder');

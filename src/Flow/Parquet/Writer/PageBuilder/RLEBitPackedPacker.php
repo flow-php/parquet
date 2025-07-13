@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Flow\Parquet\Writer\PageBuilder;
 
 use Flow\Parquet\BinaryWriter\BinaryBufferWriter;
-use Flow\Parquet\ParquetFile\Data\{BitWidth, RLEBitPackedHybrid};
+use Flow\Parquet\Data\BitWidth;
+use Flow\Parquet\Data\{RLEBitPackedHybrid};
 
 final readonly class RLEBitPackedPacker
 {
@@ -34,7 +35,7 @@ final readonly class RLEBitPackedPacker
         $this->bitPackedHybrid->encodeHybrid(new BinaryBufferWriter($dataBuffer), $bitWidth, $values);
         $outputBuffer = '';
         $outputWriter = new BinaryBufferWriter($outputBuffer);
-        $outputWriter->writeVarInts32([BitWidth::fromArray($values)]);
+        $outputWriter->writeVarInts([BitWidth::fromArray($values)]);
         $outputWriter->append($dataBuffer);
 
         return $outputBuffer;

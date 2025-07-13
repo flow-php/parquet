@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Flow\Parquet\Writer;
 
 use Flow\Parquet\{Dremel\WriteColumnData,
+    Option,
     Options,
+    Writer\ColumnChunkBuilder\DeltaBinaryPackedColumnChunkBuilder,
     Writer\ColumnChunkBuilder\NestedColumnChunkBuilder,
     Writer\ColumnChunkBuilder\PlainFlatColumnChunkBuilder};
 use Flow\Parquet\ParquetFile\{Compressions, Schema};
-use Flow\Parquet\ParquetFile\Schema\{FlatColumn, NestedColumn};
+use Flow\Parquet\ParquetFile\Schema\{FlatColumn, NestedColumn, PhysicalType};
 
 final class ColumnChunkBuilders
 {
@@ -103,6 +105,10 @@ final class ColumnChunkBuilders
 
     private static function createFlatColumnBuilder(FlatColumn $column, Options $options, Compressions $compressions) : ColumnChunkBuilder
     {
+        if (($column->type() === PhysicalType::INT32 || $column->type() === PhysicalType::INT64) && $options->getInt(Option::WRITER_VERSION) === 2) {
+            return new DeltaBinaryPackedColumnChunkBuilder($column, $options, $compressions);
+        }
+
         return new PlainFlatColumnChunkBuilder($column, $options, $compressions);
     }
 }

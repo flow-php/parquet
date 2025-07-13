@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace Flow\Parquet\Reader;
 
 use function Flow\ETL\Adapter\Parquet\empty_generator;
-use Flow\Parquet\{
-    ByteOrder,
+use Flow\Parquet\BinaryReader\BinaryBufferReader;
+use Flow\Parquet\{ByteOrder,
+    Data\BitWidth,
+    Data\DeltaBinaryPackedDecoder,
+    Data\PlainValueUnpacker,
     Dremel\ColumnData\ReadFlatColumnValues,
     Options,
-    ParquetFile\Encodings
-};
-use Flow\Parquet\BinaryReader\BinaryBufferReader;
+    ParquetFile\Encodings};
+use Flow\Parquet\Data\{RLEBitPackedHybrid};
 use Flow\Parquet\Exception\RuntimeException;
-use Flow\Parquet\ParquetFile\Data\{BitWidth, PlainValueUnpacker, RLEBitPackedHybrid};
 use Flow\Parquet\ParquetFile\Page\{Dictionary};
 use Flow\Parquet\ParquetFile\Page\Header\{DataPageHeader, DataPageHeaderV2, DictionaryPageHeader};
-use Flow\Parquet\ParquetFile\Schema\FlatColumn;
+use Flow\Parquet\ParquetFile\Schema\{FlatColumn, PhysicalType};
 
 final readonly class ColumnDataDecoder
 {
@@ -70,6 +71,30 @@ final readonly class ColumnDataDecoder
                 $repetitionLevels,
                 $definitionLevels
             );
+        }
+
+        if ($pageHeader->encoding() === Encodings::DELTA_BINARY_PACKED) {
+            if (!in_array($column->type(), [PhysicalType::INT32, PhysicalType::INT64], true)) {
+                throw new RuntimeException('Delta encoding only supports INT32 and INT64 physical types');
+            }
+
+            if ($nonEmptyValuesCount === 0) {
+                return new ReadFlatColumnValues($column, empty_generator(), $repetitionLevels, $definitionLevels);
+            }
+
+            $remainingBuffer = $reader->readBytes($reader->remainingLength()->bytes())->toArray();
+            $remainingData = implode('', array_map('chr', $remainingBuffer));
+
+            $decoder = new DeltaBinaryPackedDecoder();
+            $values = $decoder->decode($remainingData, $nonEmptyValuesCount);
+
+            $valuesGenerator = function () use ($values) {
+                foreach ($values as $value) {
+                    yield $value;
+                }
+            };
+
+            return new ReadFlatColumnValues($column, $valuesGenerator(), $repetitionLevels, $definitionLevels);
         }
 
         if ($pageHeader->encoding() === Encodings::RLE_DICTIONARY || $pageHeader->encoding() === Encodings::PLAIN_DICTIONARY) {
@@ -142,6 +167,30 @@ final readonly class ColumnDataDecoder
                 $repetitionLevels,
                 $definitionLevels
             );
+        }
+
+        if ($pageHeader->encoding() === Encodings::DELTA_BINARY_PACKED) {
+            if (!in_array($column->type(), [PhysicalType::INT32, PhysicalType::INT64], true)) {
+                throw new RuntimeException('Delta encoding only supports INT32 and INT64 physical types');
+            }
+
+            if ($nonEmptyValuesCount === 0) {
+                return new ReadFlatColumnValues($column, empty_generator(), $repetitionLevels, $definitionLevels);
+            }
+
+            $remainingBuffer = $reader->readBytes($reader->remainingLength()->bytes())->toArray();
+            $remainingData = implode('', array_map('chr', $remainingBuffer));
+
+            $decoder = new DeltaBinaryPackedDecoder();
+            $values = $decoder->decode($remainingData, $nonEmptyValuesCount);
+
+            $valuesGenerator = function () use ($values) {
+                foreach ($values as $value) {
+                    yield $value;
+                }
+            };
+
+            return new ReadFlatColumnValues($column, $valuesGenerator(), $repetitionLevels, $definitionLevels);
         }
 
         if ($pageHeader->encoding() === Encodings::RLE_DICTIONARY || $pageHeader->encoding() === Encodings::PLAIN_DICTIONARY) {

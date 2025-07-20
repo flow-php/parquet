@@ -15,7 +15,7 @@
         "ext-bcmath": "*",
         "ext-zlib": "*",
         "composer-runtime-api": "^2.1",
-        "flow-php/snappy": "^0.20.0 || 1.x-dev",
+        "flow-php/snappy": "self.version",
         "packaged/thrift": "^0.15.0"
     },
     "config": {

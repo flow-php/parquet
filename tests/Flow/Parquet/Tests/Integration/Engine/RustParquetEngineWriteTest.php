@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Flow\Parquet\Tests\Integration\Engine;
 
 use Flow\Filesystem\Stream\NativeLocalDestinationStream;
-use Flow\Parquet\Engine\ArrowParquetEngine;
+use Flow\Parquet\Engine\RustParquetEngine;
 use Flow\Parquet\Options;
 use Flow\Parquet\ParquetFile\Compressions;
 use Flow\Parquet\ParquetFile\Schema;
@@ -26,12 +26,12 @@ use function range;
 use function str_repeat;
 
 #[Group('native-extension')]
-final class ArrowParquetEngineWriteTest extends TestCase
+final class RustParquetEngineWriteTest extends TestCase
 {
     protected function setUp(): void
     {
         if (!extension_loaded('arrow')) {
-            self::markTestSkipped('Arrow extension is not loaded');
+            self::markTestSkipped('arrow is not loaded');
         }
     }
 
@@ -57,7 +57,7 @@ final class ArrowParquetEngineWriteTest extends TestCase
             ['id' => 3, 'name' => 'Charlie', 'active' => true, 'score' => 92.1],
         ];
 
-        $engine = new ArrowParquetEngine();
+        $engine = new RustParquetEngine();
         $stream = NativeLocalDestinationStream::openBlank(path($path));
         $engine->writeRows($stream, $schema, Compressions::SNAPPY, new Options(), $inputData);
 
@@ -91,7 +91,7 @@ final class ArrowParquetEngineWriteTest extends TestCase
             ['id' => 2, 'tags' => ['python'], 'address' => ['city' => 'Warsaw']],
         ];
 
-        $engine = new ArrowParquetEngine();
+        $engine = new RustParquetEngine();
         $stream = NativeLocalDestinationStream::openBlank(path($path));
         $engine->writeRows($stream, $schema, Compressions::SNAPPY, new Options(), $inputData);
 
@@ -113,7 +113,7 @@ final class ArrowParquetEngineWriteTest extends TestCase
 
         $inputData = array_map(static fn(int $i): array => ['id' => $i, 'data' => 'value_' . $i], range(1, 20));
 
-        $engine = new ArrowParquetEngine();
+        $engine = new RustParquetEngine();
         $stream = NativeLocalDestinationStream::openBlank(path($path));
         $engine->writeRows($stream, $schema, Compressions::GZIP, new Options(), $inputData);
 
@@ -134,7 +134,7 @@ final class ArrowParquetEngineWriteTest extends TestCase
 
         $inputData = array_map(static fn(int $i): array => ['id' => $i, 'data' => str_repeat('a', 100)], range(1, 50));
 
-        $engine = new ArrowParquetEngine();
+        $engine = new RustParquetEngine();
         $stream = NativeLocalDestinationStream::openBlank(path($path));
         $engine->writeRows($stream, $schema, Compressions::SNAPPY, new Options(), $inputData);
 

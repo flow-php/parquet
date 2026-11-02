@@ -20,6 +20,7 @@ use Flow\Parquet\Reader\ColumnReader;
 use Flow\Parquet\Reader\PageReader;
 use Flow\Parquet\Reader\ReadPlan;
 use Flow\Parquet\Reader\SelectedPages;
+use Flow\Parquet\Reader\SkippedMatches;
 use Flow\Parquet\Thrift\CompactProtocol;
 use Flow\Parquet\Thrift\MemoryBuffer;
 use Flow\Parquet\ThriftModel\FileMetaData;
@@ -97,9 +98,30 @@ final class PhpParquetFileReader implements ParquetFileReader
      * @param list<string> $columns
      * @param int $batchSize refused below 1, as the arrow engine refuses it
      *
-     * @return Generator<int, array<string, list<mixed>>>
+     * @return Generator<int, array<string, list<mixed>>|SkippedMatches>
      */
     public function readColumns(array $columns, int $batchSize, ReadPlan $plan): Generator
+    {
+        return $this->read($columns, $batchSize, $plan, DataConverter::initialize($this->options));
+    }
+
+    /**
+     * @param list<string> $columns
+     * @param int $batchSize refused below 1, as the arrow engine refuses it
+     *
+     * @return Generator<int, array<string, list<mixed>>|SkippedMatches>
+     */
+    public function readStoredColumns(array $columns, int $batchSize, ReadPlan $plan): Generator
+    {
+        return $this->read($columns, $batchSize, $plan, DataConverter::stored($this->options));
+    }
+
+    /**
+     * @param list<string> $columns
+     *
+     * @return Generator<int, array<string, list<mixed>>|SkippedMatches>
+     */
+    private function read(array $columns, int $batchSize, ReadPlan $plan, DataConverter $converter): Generator
     {
         $this->open || throw new RuntimeException('Reader is not open');
 
@@ -117,7 +139,7 @@ final class PhpParquetFileReader implements ParquetFileReader
 
         $columnReader = new ColumnReader(
             new SelectedPages(new ColumnChunkReader(new PageReader($this->byteOrder, $this->options), $this->options)),
-            new DremelAssembler(DataConverter::initialize($this->options)),
+            new DremelAssembler($converter),
         );
 
         if ($plan->selection->totalRows() !== $metadata->rowsNumber()) {
@@ -129,6 +151,10 @@ final class PhpParquetFileReader implements ParquetFileReader
         }
 
         if ($columns === [] || !$plan->selection->selectsAny() || $plan->limit === 0) {
+            if ($plan->offset > 0) {
+                yield new SkippedMatches(0);
+            }
+
             return;
         }
 
@@ -137,6 +163,8 @@ final class PhpParquetFileReader implements ParquetFileReader
         $selections = $plan->selection->split($rowCounts);
         $matches = $plan->matched->split($rowCounts);
         $remaining = $plan->limit;
+        $toSkip = $plan->offset;
+        $marked = $plan->offset === 0;
         $batch = array_fill_keys($columns, []);
         $batched = 0;
 
@@ -177,6 +205,13 @@ final class PhpParquetFileReader implements ParquetFileReader
 
             $rows = $selection->rowCount();
 
+            if ($toSkip > 0) {
+                $skip = min($toSkip, $rows);
+                $selection = $selection->difference($selection->head($skip));
+                $rows -= $skip;
+                $toSkip -= $skip;
+            }
+
             if ($remaining !== null && $rows > $remaining) {
                 $selection = $selection->head($remaining);
                 $rows = $remaining;
@@ -184,6 +219,12 @@ final class PhpParquetFileReader implements ParquetFileReader
 
             if ($rows === 0) {
                 continue;
+            }
+
+            if (!$marked) {
+                $marked = true;
+
+                yield new SkippedMatches($plan->offset);
             }
 
             $generators = [];
@@ -250,6 +291,10 @@ final class PhpParquetFileReader implements ParquetFileReader
 
         if ($batched > 0) {
             yield $batch;
+        }
+
+        if (!$marked) {
+            yield new SkippedMatches($plan->offset - $toSkip);
         }
     }
 }
